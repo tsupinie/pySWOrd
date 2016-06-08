@@ -123,11 +123,6 @@ class SPCSWO(object):
     _CST = tzoffset('CST', -6 * 3600)
     _CDT = tzoffset('CDT', -5 * 3600)
 
-    cat_colors = {'TSTM':'76ff7b', 'MRGL':'#008b00', 'SLGT':'#ffc800', 'ENH':'#f97306', 'MDT':'#ff0000', 'HIGH':'#ff00ff'}
-    tor_colors = {0.02:'#008b00', 0.05:'#8b4726', 0.1:'#ffc800', 0.15:'#ff0000', 0.3:'#ff00ff', 0.45:'#912cee', 0.6:'#104e8b'}
-    wind_colors = {0.05:'#8b4726', 0.15:'#ffc800', 0.3:'#ff0000', 0.45:'#ff00ff', 0.6:'#912cee'}
-    hail_colors = {0.05:'#8b4726', 0.15:'#ffc800', 0.3:'#ff0000', 0.45:'#ff00ff', 0.6:'#912cee'}
-
     def __init__(self, text, outline='outline.pkl'):
         self._conus = cPickle.load(open(outline))
         self._prods = self._parse(text)    
@@ -173,6 +168,11 @@ class SPCSWO(object):
         return prods
 
 if __name__ == "__main__":
+    cat_colors = {'TSTM':'76ff7b', 'MRGL':'#008b00', 'SLGT':'#ffc800', 'ENH':'#f97306', 'MDT':'#ff0000', 'HIGH':'#ff00ff'}
+    tor_colors = {0.02:'#008b00', 0.05:'#8b4726', 0.1:'#ffc800', 0.15:'#ff0000', 0.3:'#ff00ff', 0.45:'#912cee', 0.6:'#104e8b'}
+    wind_colors = {0.05:'#8b4726', 0.15:'#ffc800', 0.3:'#ff0000', 0.45:'#ff00ff', 0.6:'#912cee'}
+    hail_colors = {0.05:'#8b4726', 0.15:'#ffc800', 0.3:'#ff0000', 0.45:'#ff00ff', 0.6:'#912cee'}
+
     date = datetime(2011, 5, 24, 16, 30, 0)
     
     swo = SPCSWO.download(date)
@@ -193,7 +193,7 @@ if __name__ == "__main__":
 
     prod = swo['tornado']
     for name in prod.get_contour_vals():
-        colors = SPCSWO.tor_colors
+        colors = tor_colors
 
         conts = prod[name]
         for cont in conts:
