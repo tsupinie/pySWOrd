@@ -11,81 +11,53 @@ from dateutil.tz import tzutc, tzoffset
 import cPickle
 import urllib2
 
-class SPCSWO(object):
-    _CST = tzoffset('CST', -6 * 3600)
-    _CDT = tzoffset('CDT', -5 * 3600)
 
-    cat_colors = {'TSTM':'76ff7b', 'MRGL':'#008b00', 'SLGT':'#ffc800', 'ENH':'#f97306', 'MDT':'#ff0000', 'HIGH':'#ff00ff'}
-    tor_colors = {0.02:'#008b00', 0.05:'#8b4726', 0.1:'#ffc800', 0.15:'#ff0000', 0.3:'#ff00ff', 0.45:'#912cee', 0.6:'#104e8b'}
-    wind_colors = {0.05:'#8b4726', 0.15:'#ffc800', 0.3:'#ff0000', 0.45:'#ff00ff', 0.6:'#912cee'}
-    hail_colors = {0.05:'#8b4726', 0.15:'#ffc800', 0.3:'#ff0000', 0.45:'#ff00ff', 0.6:'#912cee'}
+class SPCSWOContours(object):
+    def __init__(self, product, text, outline):
+        self._product = product
+        self._conus = outline
+        self._contours = self._parse(text)
 
-    def __init__(self, text, outline='outline.pkl'):
-        self._conus = cPickle.load(open(outline))
-        self._prods = self._parse(text)    
+    def __getitem__(self, val):
+        return self._contours[val]
 
-    @staticmethod
-    def download(date, lead_time=1):
-        url = "http://www.spc.noaa.gov/products/outlook/archive/%s/KWNSPTSDY%d_%s.txt" % (date.strftime("%Y"), date.strftime("%Y%m%d%H%M"))
-        otlk_txt = urllib2.urlopen(url).read()
-        swo = SPCSWO(otlk_txt)
-        return swo
+    def __contains__(self, val):
+        return val in self._contours
 
-    def __getitem__(self, key):
-        return self._prods[key.upper()]
+    def get_contour_vals(self):
+        if self._product.lower() == "categorical":
+            categories = ['TSTM', 'MRGL', 'SLGT', 'MDT', 'HIGH']
+            contours = [ c for c in categories if c in self._contours.keys() ]
+        else:
+            contours = sorted([ c for c in self._contours.keys() if c != 'SIGN'])
+        return contours
 
     def _parse(self, text):
-        lines = text.split("\n")
-        issued = datetime.strptime(lines[3], "%I%M %p %Z %a %b %d %Y")
-        if 'CST' in lines[3]:
-            self.issued = issued.replace(tzinfo=SPCSWO._CST).astimezone(tzutc())
-        elif 'CDT'in lines[3]:
-            self.issued = issued.replace(tzinfo=SPCSWO._CDT).astimezone(tzutc())
+        contours = {}
 
-        match = re.search(r"([\d]{6})Z \- ([\d]{6})Z", lines[5])
-        valid_start_str, valid_end_str = match.groups()
-        valid_start = datetime.strptime(valid_start_str, "%d%H%M").replace(tzinfo=tzutc())
-        valid_end = datetime.strptime(valid_end_str, "%d%H%M").replace(tzinfo=tzutc())
-        if valid_end < valid_start:
-            valid_end += ((valid_start - valid_end) + timedelta(days=1)) # Complicated because you can't pass a month to timedelta ...
-        valid_len = valid_end - valid_start
+        if self._product == 'categorical'.upper():
+            conts = re.split("[\s](?=[A-Z]{3})", text, re.S)
+        else:
+            conts = re.split("[\s](?=0\.|SI|TS)", text, re.S)
 
-        self.valid_start = valid_start.replace(year=issued.year, month=issued.month)
-        self.valid_end = self.valid_start + valid_len
+        for cont in conts:
+            try:
+                cont_val = float(cont[:6])
+            except ValueError:
+                cont_val = cont[:6].strip()
 
-        products = re.findall(r"\.\.\. ([A-Z]+) \.\.\.", text)
-        prods = {}
-        for prod in products:
-            match = re.search("\.\.\. %s \.\.\.([\w\d\s\.]+)\&\&" % prod, text, re.S)
-            cont_str = match.groups()[0].strip()
-            if cont_str == "":
-                continue
+            if self._product == 'tornado'.upper() and cont_val == 'tstm'.upper():
+                cont_val = 0.45 
 
-            prods[prod] = {}
+            coords = re.findall("[\d]{8}", cont)
+            lats, lons = zip(*[ (float(c[:4]) / 100., float(c[4:]) / 100.) for c in coords ])
+            lons = tuple([ -(lon + 100.) if lon < 50 else -lon for lon in lons ])
 
-            if prod == 'categorical'.upper():
-                conts = re.split("[\s](?=[A-Z]{3})", cont_str, re.S)
-            else:
-                conts = re.split("[\s](?=0\.|SI|TS)", cont_str, re.S)
+            if cont_val not in contours:
+                contours[cont_val] = []
 
-            for cont in conts:
-                try:
-                    cont_val = float(cont[:6])
-                except ValueError:
-                    cont_val = cont[:6].strip()
-
-                if prod == 'tornado'.upper() and cont_val == 'tstm'.upper():
-                    cont_val = 0.45 
-
-                coords = re.findall("[\d]{8}", cont)
-                lats, lons = zip(*[ (float(c[:4]) / 100., float(c[4:]) / 100.) for c in coords ])
-                lons = tuple([ -(lon + 100.) if lon < 50 else -lon for lon in lons ])
-
-                if cont_val not in prods[prod]:
-                    prods[prod][cont_val] = []
-
-                prods[prod][cont_val].extend(self._cont2Polys(lats, lons))
-        return prods
+            contours[cont_val].extend(self._cont2Polys(lats, lons))
+        return contours
 
     def _cont2Polys(self, cont_lats, cont_lons):
         polys = []
@@ -146,6 +118,60 @@ class SPCSWO(object):
             intsct_polys.append(intsct_poly)
         return intsct_polys
 
+
+class SPCSWO(object):
+    _CST = tzoffset('CST', -6 * 3600)
+    _CDT = tzoffset('CDT', -5 * 3600)
+
+    cat_colors = {'TSTM':'76ff7b', 'MRGL':'#008b00', 'SLGT':'#ffc800', 'ENH':'#f97306', 'MDT':'#ff0000', 'HIGH':'#ff00ff'}
+    tor_colors = {0.02:'#008b00', 0.05:'#8b4726', 0.1:'#ffc800', 0.15:'#ff0000', 0.3:'#ff00ff', 0.45:'#912cee', 0.6:'#104e8b'}
+    wind_colors = {0.05:'#8b4726', 0.15:'#ffc800', 0.3:'#ff0000', 0.45:'#ff00ff', 0.6:'#912cee'}
+    hail_colors = {0.05:'#8b4726', 0.15:'#ffc800', 0.3:'#ff0000', 0.45:'#ff00ff', 0.6:'#912cee'}
+
+    def __init__(self, text, outline='outline.pkl'):
+        self._conus = cPickle.load(open(outline))
+        self._prods = self._parse(text)    
+
+    @staticmethod
+    def download(date, lead_time=1):
+        url = "http://www.spc.noaa.gov/products/outlook/archive/%s/KWNSPTSDY%d_%s.txt" % (date.strftime("%Y"), lead_time, date.strftime("%Y%m%d%H%M"))
+        otlk_txt = urllib2.urlopen(url).read()
+        swo = SPCSWO(otlk_txt)
+        return swo
+
+    def __getitem__(self, key):
+        return self._prods[key.upper()]
+
+    def _parse(self, text):
+        lines = text.split("\n")
+        issued = datetime.strptime(lines[3], "%I%M %p %Z %a %b %d %Y")
+        if 'CST' in lines[3]:
+            self.issued = issued.replace(tzinfo=SPCSWO._CST).astimezone(tzutc())
+        elif 'CDT'in lines[3]:
+            self.issued = issued.replace(tzinfo=SPCSWO._CDT).astimezone(tzutc())
+
+        match = re.search(r"([\d]{6})Z \- ([\d]{6})Z", lines[5])
+        valid_start_str, valid_end_str = match.groups()
+        valid_start = datetime.strptime(valid_start_str, "%d%H%M").replace(tzinfo=tzutc())
+        valid_end = datetime.strptime(valid_end_str, "%d%H%M").replace(tzinfo=tzutc())
+        if valid_end < valid_start:
+            valid_end += ((valid_start - valid_end) + timedelta(days=1)) # Complicated because you can't pass a month to timedelta ...
+        valid_len = valid_end - valid_start
+
+        self.valid_start = valid_start.replace(year=issued.year, month=issued.month)
+        self.valid_end = self.valid_start + valid_len
+
+        products = re.findall(r"\.\.\. ([A-Z]+) \.\.\.", text)
+        prods = {}
+        for prod in products:
+            match = re.search("\.\.\. %s \.\.\.([\w\d\s\.]+)\&\&" % prod, text, re.S)
+            cont_str = match.groups()[0].strip()
+            if cont_str == "":
+                continue
+
+            prods[prod] = SPCSWOContours(prod, cont_str, self._conus) 
+        return prods
+
 if __name__ == "__main__":
     date = datetime(2011, 5, 24, 16, 30, 0)
     
@@ -166,10 +192,7 @@ if __name__ == "__main__":
     pylab.subplots_adjust(left=0.05, right=0.95, bottom=0.05, top=0.9)
 
     prod = swo['tornado']
-    for name in [0.02, 0.05, 0.10, 0.15, 0.30, 0.45, 0.60]: #['TSTM', 'MRGL', 'SLGT', 'ENH', 'MDT', 'HIGH']:
-        if name not in prod:
-            continue
-
+    for name in prod.get_contour_vals():
         colors = SPCSWO.tor_colors
 
         conts = prod[name]
@@ -182,4 +205,4 @@ if __name__ == "__main__":
     bmap.drawstates()
 
     pylab.title("%s SPC Convective Outlook for %s" % (date.strftime("%H%MZ"), date.strftime("%d %B %Y")))
-    pylab.savefig('outline.png', dpi=pylab.gcf().dpi)
+    pylab.savefig('otlk.png', dpi=pylab.gcf().dpi)
