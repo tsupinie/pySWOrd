@@ -35,7 +35,7 @@ class SPCSWOContours(object):
     def _parse(self, text):
         contours = {}
 
-        if self._product == 'categorical'.upper():
+        if self._product.lower() == 'categorical':
             conts = re.split("[\s](?=[A-Z]{3})", text, re.S)
         else:
             conts = re.split("[\s](?=0\.|SI|TS)", text, re.S)
@@ -46,7 +46,7 @@ class SPCSWOContours(object):
             except ValueError:
                 cont_val = cont[:6].strip()
 
-            if self._product == 'tornado'.upper() and cont_val == 'tstm'.upper():
+            if self._product.lower() == 'tornado' and cont_val == 'TSTM':
                 cont_val = 0.45 
 
             coords = re.findall("[\d]{8}", cont)
@@ -56,10 +56,10 @@ class SPCSWOContours(object):
             if cont_val not in contours:
                 contours[cont_val] = []
 
-            contours[cont_val].extend(self._cont2Polys(lats, lons))
+            contours[cont_val].extend(self._cont_to_polys(lats, lons))
         return contours
 
-    def _cont2Polys(self, cont_lats, cont_lons):
+    def _cont_to_polys(self, cont_lats, cont_lons):
         polys = []
 
         start_idx = 0
@@ -168,7 +168,7 @@ class SPCSWO(object):
         return prods
 
 if __name__ == "__main__":
-    cat_colors = {'TSTM':'76ff7b', 'MRGL':'#008b00', 'SLGT':'#ffc800', 'ENH':'#f97306', 'MDT':'#ff0000', 'HIGH':'#ff00ff'}
+    cat_colors = {'TSTM':'#76ff7b', 'MRGL':'#008b00', 'SLGT':'#ffc800', 'ENH':'#f97306', 'MDT':'#ff0000', 'HIGH':'#ff00ff'}
     tor_colors = {0.02:'#008b00', 0.05:'#8b4726', 0.1:'#ffc800', 0.15:'#ff0000', 0.3:'#ff00ff', 0.45:'#912cee', 0.6:'#104e8b'}
     wind_colors = {0.05:'#8b4726', 0.15:'#ffc800', 0.3:'#ff0000', 0.45:'#ff00ff', 0.6:'#912cee'}
     hail_colors = {0.05:'#8b4726', 0.15:'#ffc800', 0.3:'#ff0000', 0.45:'#ff00ff', 0.6:'#912cee'}
@@ -191,9 +191,9 @@ if __name__ == "__main__":
     pylab.figure(dpi=200)
     pylab.subplots_adjust(left=0.05, right=0.95, bottom=0.05, top=0.9)
 
-    prod = swo['tornado']
+    prod = swo['categorical']
     for name in prod.get_contour_vals():
-        colors = tor_colors
+        colors = cat_colors
 
         conts = prod[name]
         for cont in conts:
