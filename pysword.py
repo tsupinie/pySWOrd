@@ -11,7 +11,6 @@ from dateutil.tz import tzutc, tzoffset
 import cPickle
 import urllib2
 
-
 class SPCSWOContours(object):
     def __init__(self, product, text, outline):
         self._product = product
@@ -78,34 +77,35 @@ class SPCSWOContours(object):
 
         # Intersect with the US boundary shape file.
         for plat, plon in zip(poly_lats, poly_lons):
-            dln = np.diff(plon)
-            dlt = np.diff(plat)
-
-            pre = [ (plon[0] - 0.5 * dln[0], plat[0] - 0.5 * dlt[0]) ]
-            post = [ (plon[-1] + 0.5 * dln[-1], plat[-1] + 0.5 * dlt[-1]) ]
-
             cont = LineString(zip(plon, plat))
-            cont.coords = pre + list(cont.coords) + post 
 
-            test_pt = cont.parallel_offset(0.05, 'right').interpolate(0.5, normalized=True)
+            if plat[0] != plat[-1] or plon[0] != plon[-1]:
+                # If the line is not a closed contour, then it intersects with the edge of the US. Extend
+                #   the ends a little bit to make sure it's outside the edge.
+                dln = np.diff(plon)
+                dlt = np.diff(plat)
 
-            counter = 0
-            while not self._conus.contains(test_pt):
-                test_pt = cont.parallel_offset(0.05, 'right').interpolate(random.random(), normalized=True)
+                pre = [ (plon[0] - 0.5 * dln[0], plat[0] - 0.5 * dlt[0]) ]
+                post = [ (plon[-1] + 0.5 * dln[-1], plat[-1] + 0.5 * dlt[-1]) ]
 
-                if counter > 30:
-                    break
+                cont.coords = pre + list(cont.coords) + post 
 
-                counter += 1
+            # polygonize() will split the country into two parts: one inside the outlook and one outside.
+            #   Construct test_ln that is to the right of (inside) the contour and keep only the polygon
+            #   that contains the line
+            test_ln = cont.parallel_offset(0.05, 'right')
 
             for poly in polygonize(self._conus.boundary.union(cont)):
-                if poly.contains(test_pt):
+                if (poly.crosses(test_ln) or poly.contains(test_ln)) and self._conus.contains(poly.buffer(-0.01)):
                     polys.append(poly)
+
+        # Sort the polygons by area so we intersect the big ones with the big ones first.
+        polys.sort(key=lambda p: p.area, reverse=True)
 
         # If any polygons intersect, replace them with their intersection.
         intsct_polys = []
         while len(polys) > 0:
-            intsct_poly = polys.pop()
+            intsct_poly = polys.pop(0)
             pops = []
             for idx, poly in enumerate(polys):
                 if intsct_poly.intersects(poly):
@@ -168,27 +168,27 @@ class SPCSWO(object):
         return prods
 
 if __name__ == "__main__":
-    cat_colors = {'TSTM':'#76ff7b', 'MRGL':'#008b00', 'SLGT':'#ffc800', 'ENH':'#f97306', 'MDT':'#ff0000', 'HIGH':'#ff00ff'}
-    tor_colors = {0.02:'#008b00', 0.05:'#8b4726', 0.1:'#ffc800', 0.15:'#ff0000', 0.3:'#ff00ff', 0.45:'#912cee', 0.6:'#104e8b'}
-    wind_colors = {0.05:'#8b4726', 0.15:'#ffc800', 0.3:'#ff0000', 0.45:'#ff00ff', 0.6:'#912cee'}
-    hail_colors = {0.05:'#8b4726', 0.15:'#ffc800', 0.3:'#ff0000', 0.45:'#ff00ff', 0.6:'#912cee'}
-
-    date = datetime(2011, 5, 24, 16, 30, 0)
-    
-    swo = SPCSWO.download(date)
-
     import matplotlib as mpl
     mpl.use('agg')
     import pylab
-    from mpl_toolkits.basemap import Basemap
 
     from descartes import PolygonPatch
+    from mpl_toolkits.basemap import Basemap
 
     bmap = Basemap(projection='lcc', resolution='i', 
         llcrnrlon=-120, llcrnrlat=23, urcrnrlon=-64, urcrnrlat=49,
         lat_1=33, lat_2=45, lon_0=-98, area_thresh=(1.5 * 36 * 36))
 
+    cat_colors = {'TSTM':'#76ff7b', 'MRGL':'#008b00', 'SLGT':'#ffc800', 'ENH':'#f97306', 'MDT':'#ff0000', 'HIGH':'#ff00ff'}
+    tor_colors = {0.02:'#008b00', 0.05:'#8b4726', 0.1:'#ffc800', 0.15:'#ff0000', 0.3:'#ff00ff', 0.45:'#912cee', 0.6:'#104e8b'}
+    wind_colors = {0.05:'#8b4726', 0.15:'#ffc800', 0.3:'#ff0000', 0.45:'#ff00ff', 0.6:'#912cee'}
+    hail_colors = {0.05:'#8b4726', 0.15:'#ffc800', 0.3:'#ff0000', 0.45:'#ff00ff', 0.6:'#912cee'}
+
+    date = datetime(2016, 5, 21, 16, 30, 0)
+    
     pylab.figure(dpi=200)
+    swo = SPCSWO.download(date)
+
     pylab.subplots_adjust(left=0.05, right=0.95, bottom=0.05, top=0.9)
 
     prod = swo['categorical']
