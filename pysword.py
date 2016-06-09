@@ -25,7 +25,7 @@ class SPCSWOContours(object):
 
     def get_contour_vals(self):
         if self._product.lower() == "categorical":
-            categories = ['TSTM', 'MRGL', 'SLGT', 'MDT', 'HIGH']
+            categories = ['TSTM', 'MRGL', 'SLGT', 'ENH', 'MDT', 'HIGH']
             contours = [ c for c in categories if c in self._contours.keys() ]
         else:
             contours = sorted([ c for c in self._contours.keys() if c != 'SIGN'])
@@ -184,7 +184,7 @@ if __name__ == "__main__":
     wind_colors = {0.05:'#8b4726', 0.15:'#ffc800', 0.3:'#ff0000', 0.45:'#ff00ff', 0.6:'#912cee'}
     hail_colors = {0.05:'#8b4726', 0.15:'#ffc800', 0.3:'#ff0000', 0.45:'#ff00ff', 0.6:'#912cee'}
 
-    date = datetime(2016, 5, 21, 16, 30, 0)
+    date = datetime(2015, 5, 16, 16, 30, 0)
     
     pylab.figure(dpi=200)
     swo = SPCSWO.download(date)
