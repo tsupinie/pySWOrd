@@ -25,7 +25,7 @@ class SPCSWOContours(object):
 
     def get_contour_vals(self):
         if self._product.lower() == "categorical":
-            categories = ['TSTM', 'MRGL', 'SLGT', 'MDT', 'HIGH']
+            categories = ['TSTM', 'MRGL', 'SLGT', 'ENH', 'MDT', 'HIGH']
             contours = [ c for c in categories if c in self._contours.keys() ]
         else:
             contours = sorted([ c for c in self._contours.keys() if c != 'SIGN'])
