@@ -29,5 +29,5 @@ product = swo['categorical']               # Pull out the categorical outlook (s
 contour_vals = product.get_contour_vals()  # Get the contour values for this outlook
 for con_val in contour_vals:
     for polygon in product[con_val]:       # Loop over all contours (e.g. all SLGT risk areas)
-        # Polygon is a shapely polygon representing a contour in the outlook.
+        # polygon is a shapely polygon representing a contour in the outlook.
 ```
