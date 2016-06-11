@@ -158,13 +158,14 @@ class SPCSWO(object):
     _CST = tzoffset('CST', -6 * 3600)
     _CDT = tzoffset('CDT', -5 * 3600)
 
-    def __init__(self, text, outline=os.path.join(os.path.dirname(__file__), 'outline.pkl')):
+    def __init__(self, text, outline=os.path.join(os.path.dirname(__file__), 'data', 'outline.pkl')):
         self._conus = cPickle.load(open(outline))
         self._prods = self._parse(text)    
 
     @staticmethod
     def download(date, lead_time=1):
-        url = "http://www.spc.noaa.gov/products/outlook/archive/%s/KWNSPTSDY%d_%s.txt" % (date.strftime("%Y"), lead_time, date.strftime("%Y%m%d%H%M"))
+        url = "http://www.spc.noaa.gov/products/outlook/archive/%s/KWNSPTSDY%d_%s.txt" % (date.strftime("%Y"), 
+            lead_time, date.strftime("%Y%m%d%H%M"))
         otlk_txt = urllib2.urlopen(url).read()
         swo = SPCSWO(otlk_txt)
         return swo
@@ -221,9 +222,10 @@ if __name__ == "__main__":
     hail_colors = {0.05:'#8b4726', 0.15:'#ffc800', 0.3:'#ff0000', 0.45:'#ff00ff', 0.6:'#912cee'}
 
     date = datetime(2012, 4, 13, 6, 0, 0)
-    
+    lead_time = 2    
+
     pylab.figure(dpi=200)
-    swo = SPCSWO.download(date, lead_time=2)
+    swo = SPCSWO.download(date, lead_time=lead_time)
 
     pylab.subplots_adjust(left=0.05, right=0.95, bottom=0.05, top=0.9)
 
@@ -240,5 +242,5 @@ if __name__ == "__main__":
     bmap.drawcountries()
     bmap.drawstates()
 
-    pylab.title("%s SPC Convective Outlook for %s" % (date.strftime("%H%MZ"), date.strftime("%d %B %Y")))
+    pylab.title("%s Day-%d SPC Convective Outlook from %s" % (date.strftime("%H%MZ"), lead_time, date.strftime("%d %B %Y")))
     pylab.savefig('otlk.png', dpi=pylab.gcf().dpi)

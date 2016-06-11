@@ -1,12 +1,16 @@
 # pySWOrd
-A parser for SPC convective outlooks
+A parser for SPC severe weather outlooks.
 
 ## Required Libraries
 * `numpy`
 * `shapely`
 * `dateutil`
+* `setuptools`
 
-For plotting, `matplotlib` is suggested, and `descartes` makes plotting `shapely` polygons with `matplotlib` super easy.
+For plotting, `matplotlib` + `basemap` is suggested, and `descartes` makes plotting `shapely` polygons with `matplotlib` super easy.
+
+## Setup
+Run `python setup.py install` from the package root.
 
 ## Usage
 ```python
@@ -15,7 +19,7 @@ from pysword import SPCSWO
 # Load from text (the WWUS0n PTSDYn product, where n = 1,2,3).
 swo = SPCSWO(outlook_text)
 
-# Download from the Internet. WWUS0n PDSDYn products exist back to 24 March 2005.
+# Download from the Internet. WWUS0n PTSDYn products exist back to 24 March 2005.
 from datetime import datetime
 
 outlook_issue = datetime(2012, 4, 13, 6, 0, 0)             # Outlook issuance time
@@ -30,5 +34,6 @@ product = swo['categorical']               # Pull out the categorical outlook (s
 contour_vals = product.get_contour_vals()  # Get the contour values for this outlook
 for con_val in contour_vals:
     for polygon in product[con_val]:       # Loop over all contours (e.g. all SLGT risk areas)
-        # polygon is a shapely polygon representing a contour in the outlook.
+        # polygon is a shapely polygon representing a contour in the outlook. The vertices are lat, lon
+        # coordinates. You can use shapely.ops.transform() and basemap to transform to x, y coordinates.
 ```
