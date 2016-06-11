@@ -1,5 +1,5 @@
 # pySWOrd
-A parser for SPC severe weather outlooks.
+A parser for SPC severe weather outlooks. Specifically, pySOWrd will pull out the contours from an SPC outlook and store them as polygons. This allows one to do things such as compute the area enclosed by a contour, find out whether specific points are inside a contour, or to plot an outlook.
 
 ## Required Libraries
 * `numpy`
