@@ -1,7 +1,7 @@
 
 import numpy as np
 
-from shapely.geometry import LineString
+from shapely.geometry import MultiLineString, LineString, Point
 from shapely.ops import polygonize, transform
 import random
 
@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 from dateutil.tz import tzutc, tzoffset
 import cPickle
 import urllib2
+
 
 class SPCSWOContours(object):
     def __init__(self, product, text, outline):
@@ -45,6 +46,8 @@ class SPCSWOContours(object):
             except ValueError:
                 cont_val = cont[:6].strip()
 
+            # Dirty hack for the 7 April 2006 20Z tornado outlook, which encodes the 45% contour as a TSTM contour for 
+            #   some reason. Hopefully, I don't have to do too many of these.
             if self._product.lower() == 'tornado' and cont_val == 'TSTM':
                 cont_val = 0.45 
 
@@ -97,26 +100,57 @@ class SPCSWOContours(object):
 
             for poly in polygonize(self._conus.boundary.union(cont)):
                 if (poly.crosses(test_ln) or poly.contains(test_ln)) and self._conus.contains(poly.buffer(-0.01)):
-                    polys.append(poly)
+                    bdy = poly.boundary.difference(self._conus.boundary)
+                    polys.append((bdy, poly))
 
-        # Sort the polygons by area so we intersect the big ones with the big ones first.
-        polys.sort(key=lambda p: p.area, reverse=True)
+        def line_distance(l1, l2):
+            if hasattr(l1, 'geoms'):
+                pts1 = [ Point(c) for ls in l1.geoms for c in ls.coords ]
+            else:
+                pts1 = [ Point(c) for c in l1.coords ]
+
+            if hasattr(l2, 'geoms'):
+                pts2 = [ Point(c) for ls in l2.geoms for c in ls.coords ]
+            else:
+                pts2 = [ Point(c) for c in l2.coords ]
+
+            lpts1 = [ l2.interpolate(l2.project(pt)) for pt in pts1 ]
+            lpts2 = [ l1.interpolate(l1.project(pt)) for pt in pts2 ]
+
+            dists1 = [ np.hypot(p.x - l.x, p.y - l.y) for p, l in zip(pts1, lpts1) ]
+            dists2 = [ np.hypot(p.x - l.x, p.y - l.y) for p, l in zip(pts2, lpts2) ]
+            return min(dists1 + dists2)
+
+        def any_intersections(poly_list):
+            for idx, p1 in enumerate(poly_list):
+                for p2 in poly_list[(idx + 1):]:
+                    if p1.intersects(p2):
+                        return True
+            return False
 
         # If any polygons intersect, replace them with their intersection.
-        intsct_polys = []
-        while len(polys) > 0:
-            intsct_poly = polys.pop(0)
-            pops = []
-            for idx, poly in enumerate(polys):
-                if intsct_poly.intersects(poly):
-                    intsct_poly = intsct_poly.intersection(poly)
-                    pops.append(idx)
+        while any_intersections(zip(*polys)[1]):
+            # Sort the polygons by area so we intersect the big ones with the big ones first.
+            polys.sort(key=lambda p: p[1].area, reverse=True)
 
-            for pop_idx in pops[::-1]:
-                polys.pop(pop_idx)
+            # Our target is the largest polygon
+            target_bdy, target_poly = polys.pop(0)
 
-            intsct_polys.append(intsct_poly)
-        return intsct_polys
+            # Find all the areas that intersect with our target and sort them by the minimum distance of its boundary 
+            #   from the target's boundary.
+            intersects = [ p for p in polys if target_poly.intersects(p[1]) ]
+            intersects.sort(key=lambda p: line_distance(target_bdy, p[0]))
+
+            # The first one is the one we want.
+            intsct_bdy, intsct_poly = intersects.pop(0)
+
+            target_poly = target_poly.intersection(intsct_poly)
+            target_bdy = target_bdy.union(intsct_bdy)
+
+            polys.remove((intsct_bdy, intsct_poly))
+            polys.append((target_bdy, target_poly))
+
+        return zip(*polys)[1]
 
 
 class SPCSWO(object):
@@ -167,6 +201,7 @@ class SPCSWO(object):
             prods[prod] = SPCSWOContours(prod, cont_str, self._conus) 
         return prods
 
+
 if __name__ == "__main__":
     import matplotlib as mpl
     mpl.use('agg')
@@ -184,7 +219,7 @@ if __name__ == "__main__":
     wind_colors = {0.05:'#8b4726', 0.15:'#ffc800', 0.3:'#ff0000', 0.45:'#ff00ff', 0.6:'#912cee'}
     hail_colors = {0.05:'#8b4726', 0.15:'#ffc800', 0.3:'#ff0000', 0.45:'#ff00ff', 0.6:'#912cee'}
 
-    date = datetime(2015, 5, 16, 16, 30, 0)
+    date = datetime(2016, 5, 21, 16, 30, 0)
     
     pylab.figure(dpi=200)
     swo = SPCSWO.download(date)
