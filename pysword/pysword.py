@@ -164,9 +164,20 @@ class SPCSWO(object):
 
     @staticmethod
     def download(date, lead_time=1):
-        url = "http://www.spc.noaa.gov/products/outlook/archive/%s/KWNSPTSDY%d_%s.txt" % (date.strftime("%Y"), 
-            lead_time, date.strftime("%Y%m%d%H%M"))
-        otlk_txt = urllib2.urlopen(url).read()
+        if lead_time == 1 and date.hour == 6:
+            # The 06Z Outlooks on day 1 are filed under 12Z, their valid start time. That's slightly unintuitive, so 
+            #   let's fix that.
+            dl_date = date.replace(hour=12)
+        else:
+            dl_date = date
+
+        url = "http://www.spc.noaa.gov/products/outlook/archive/%s/KWNSPTSDY%d_%s.txt" % (dl_date.strftime("%Y"), 
+            lead_time, dl_date.strftime("%Y%m%d%H%M"))
+        try:
+            otlk_txt = urllib2.urlopen(url).read()
+        except urllib2.URLError:
+            raise ValueError("A day-%d outlook from %s could not be found." % 
+                (lead_time, date.strftime("%H%MZ %d %b %Y")))
         swo = SPCSWO(otlk_txt)
         return swo
 
@@ -186,7 +197,7 @@ class SPCSWO(object):
         valid_start = datetime.strptime(valid_start_str, "%d%H%M").replace(tzinfo=tzutc())
         valid_end = datetime.strptime(valid_end_str, "%d%H%M").replace(tzinfo=tzutc())
         if valid_end < valid_start:
-            valid_end += ((valid_start - valid_end) + timedelta(days=1)) # Complicated because you can't pass a month to timedelta ...
+            valid_end += ((valid_start - valid_end) + timedelta(days=1))
         valid_len = valid_end - valid_start
 
         self.valid_start = valid_start.replace(year=issued.year, month=issued.month)
@@ -221,17 +232,18 @@ if __name__ == "__main__":
     wind_colors = {0.05:'#8b4726', 0.15:'#ffc800', 0.3:'#ff0000', 0.45:'#ff00ff', 0.6:'#912cee'}
     hail_colors = {0.05:'#8b4726', 0.15:'#ffc800', 0.3:'#ff0000', 0.45:'#ff00ff', 0.6:'#912cee'}
 
-    date = datetime(2012, 4, 13, 6, 0, 0)
-    lead_time = 2    
+    date = datetime(2013, 5, 31, 6, 0, 0)
+    lead_time = 1
 
     pylab.figure(dpi=200)
     swo = SPCSWO.download(date, lead_time=lead_time)
+    print "Outlook valid %s, ending %s." % (swo.valid_start.strftime("%H%MZ %d %b %Y"), swo.valid_end.strftime("%H%MZ %d %b %Y"))
 
     pylab.subplots_adjust(left=0.05, right=0.95, bottom=0.05, top=0.9)
 
-    prod = swo['any severe']
+    prod = swo['categorical']
     for name in prod.get_contour_vals():
-        colors = wind_colors
+        colors = cat_colors
 
         conts = prod[name]
         for cont in conts:
