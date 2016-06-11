@@ -6,6 +6,7 @@ from shapely.ops import polygonize, transform
 import random
 
 import re
+import os
 from datetime import datetime, timedelta
 from dateutil.tz import tzutc, tzoffset
 import cPickle
@@ -157,7 +158,7 @@ class SPCSWO(object):
     _CST = tzoffset('CST', -6 * 3600)
     _CDT = tzoffset('CDT', -5 * 3600)
 
-    def __init__(self, text, outline='outline.pkl'):
+    def __init__(self, text, outline=os.path.join(os.path.dirname(__file__), 'outline.pkl')):
         self._conus = cPickle.load(open(outline))
         self._prods = self._parse(text)    
 
@@ -190,7 +191,7 @@ class SPCSWO(object):
         self.valid_start = valid_start.replace(year=issued.year, month=issued.month)
         self.valid_end = self.valid_start + valid_len
 
-        products = re.findall(r"\.\.\. ([A-Z]+) \.\.\.", text)
+        products = re.findall(r"\.\.\. ([A-Z ]+) \.\.\.", text)
         prods = {}
         for prod in products:
             match = re.search("\.\.\. %s \.\.\.([\w\d\s\.]+)\&\&" % prod, text, re.S)
@@ -219,16 +220,16 @@ if __name__ == "__main__":
     wind_colors = {0.05:'#8b4726', 0.15:'#ffc800', 0.3:'#ff0000', 0.45:'#ff00ff', 0.6:'#912cee'}
     hail_colors = {0.05:'#8b4726', 0.15:'#ffc800', 0.3:'#ff0000', 0.45:'#ff00ff', 0.6:'#912cee'}
 
-    date = datetime(2016, 5, 21, 16, 30, 0)
+    date = datetime(2012, 4, 13, 6, 0, 0)
     
     pylab.figure(dpi=200)
-    swo = SPCSWO.download(date)
+    swo = SPCSWO.download(date, lead_time=2)
 
     pylab.subplots_adjust(left=0.05, right=0.95, bottom=0.05, top=0.9)
 
-    prod = swo['categorical']
+    prod = swo['any severe']
     for name in prod.get_contour_vals():
-        colors = cat_colors
+        colors = wind_colors
 
         conts = prod[name]
         for cont in conts:
