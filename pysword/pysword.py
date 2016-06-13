@@ -180,6 +180,12 @@ class SPCSWO(object):
                 (lead_time, date.strftime("%H%MZ %d %b %Y")))
         swo = SPCSWO(otlk_txt)
         return swo
+    
+    @staticmethod
+    def read(file_path):
+        with open(file_path, "r") as IN:
+            otlk_txt = IN.read()
+        return SPCSWO(otlk_txt)
 
     def __getitem__(self, key):
         return self._prods[key.upper()]
