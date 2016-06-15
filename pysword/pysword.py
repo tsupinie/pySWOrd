@@ -60,9 +60,19 @@ class SPCSWOContours(object):
                 contours[cont_val] = []
 
             contours[cont_val].extend(self._cont_to_polys(lats, lons))
+
+        for cont_val in contours.keys():
+            contours[cont_val] = self._check_intersections(contours[cont_val])
+            contours[cont_val] = zip(*contours[cont_val])[1]
+
         return contours
 
     def _cont_to_polys(self, cont_lats, cont_lons):
+        """
+        Take the lat/lon contours, split them into their different segments, and create polygons out of them. Contours
+        that stretch from border to border will end up covering large sections of the country. That's okay; we'll take
+        care of that later.
+        """
         polys = []
 
         start_idx = 0
@@ -103,7 +113,13 @@ class SPCSWOContours(object):
                 if (poly.crosses(test_ln) or poly.contains(test_ln)) and self._conus.contains(poly.buffer(-0.01)):
                     bdy = poly.boundary.difference(self._conus.boundary)
                     polys.append((bdy, poly))
+        return polys
 
+    def _check_intersections(self, poly_bdy_list):
+        """
+        Check for any intersections between polygons. This happens when contours stretch from one border to another, say
+        a large general TSTM area stretching from the Mexican to Canadian border.
+        """
         def line_distance(l1, l2):
             if hasattr(l1, 'geoms'):
                 pts1 = [ Point(c) for ls in l1.geoms for c in ls.coords ]
@@ -130,16 +146,16 @@ class SPCSWOContours(object):
             return False
 
         # If any polygons intersect, replace them with their intersection.
-        while any_intersections(zip(*polys)[1]):
+        while any_intersections(zip(*poly_bdy_list)[1]):
             # Sort the polygons by area so we intersect the big ones with the big ones first.
-            polys.sort(key=lambda p: p[1].area, reverse=True)
+            poly_bdy_list.sort(key=lambda p: p[1].area, reverse=True)
 
             # Our target is the largest polygon
-            target_bdy, target_poly = polys.pop(0)
+            target_bdy, target_poly = poly_bdy_list.pop(0)
 
             # Find all the areas that intersect with our target and sort them by the minimum distance of its boundary 
             #   from the target's boundary.
-            intersects = [ p for p in polys if target_poly.intersects(p[1]) ]
+            intersects = [ p for p in poly_bdy_list if target_poly.intersects(p[1]) ]
             intersects.sort(key=lambda p: line_distance(target_bdy, p[0]))
 
             # The first one is the one we want.
@@ -148,10 +164,10 @@ class SPCSWOContours(object):
             target_poly = target_poly.intersection(intsct_poly)
             target_bdy = target_bdy.union(intsct_bdy)
 
-            polys.remove((intsct_bdy, intsct_poly))
-            polys.append((target_bdy, target_poly))
+            poly_bdy_list.remove((intsct_bdy, intsct_poly))
+            poly_bdy_list.append((target_bdy, target_poly))
 
-        return zip(*polys)[1]
+        return poly_bdy_list
 
 
 class SPCSWO(object):
