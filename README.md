@@ -16,8 +16,11 @@ Run `python setup.py install` from the package root.
 ```python
 from pysword import SPCSWO
 
-# Load from text (the WWUS0n PTSDYn product, where n = 1,2,3).
+# Parse the product text (the WWUS0n PTSDYn product, where n = 1,2,3).
 swo = SPCSWO(outlook_text)
+
+# Load the text from a local file.
+swo = SPCSWO.read('/path/to/ptsdyn.txt')
 
 # Download from the Internet. WWUS0n PTSDYn products exist back to 24 March 2005.
 from datetime import datetime
