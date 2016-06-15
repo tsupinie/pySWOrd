@@ -178,8 +178,8 @@ class SPCSWO(object):
         self._conus = cPickle.load(open(outline))
         self._prods = self._parse(text)    
 
-    @staticmethod
-    def download(date, lead_time=1):
+    @classmethod
+    def download(cls, date, lead_time=1):
         if lead_time == 1 and date.hour == 6:
             # The 06Z Outlooks on day 1 are filed under 12Z, their valid start time. That's slightly unintuitive, so 
             #   let's fix that.
@@ -194,8 +194,14 @@ class SPCSWO(object):
         except urllib2.URLError:
             raise ValueError("A day-%d outlook from %s could not be found." % 
                 (lead_time, date.strftime("%H%MZ %d %b %Y")))
-        swo = SPCSWO(otlk_txt)
+        swo = cls(otlk_txt)
         return swo
+    
+    @classmethod
+    def read(cls, file_path):
+        with open(file_path, "r") as IN:
+            otlk_txt = IN.read()
+        return cls(otlk_txt)
 
     def __getitem__(self, key):
         return self._prods[key.upper()]
