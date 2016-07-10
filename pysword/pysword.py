@@ -57,13 +57,13 @@ class SPCSWOContours(object):
             lons = tuple([ -(lon + 100.) if lon < 50 else -lon for lon in lons ])
 
             if cont_val not in contours:
-                contours[cont_val] = []
+                contours[cont_val] = {}
 
-            contours[cont_val].extend(self._cont_to_polys(lats, lons))
+            contours[cont_val].update(self._cont_to_polys(lats, lons))
 
         for cont_val in contours.keys():
-            contours[cont_val] = self._check_intersections(contours[cont_val])
-            contours[cont_val] = zip(*contours[cont_val])[1]
+            contours[cont_val] = self._check_intersections(contours[cont_val], cont_val)
+            contours[cont_val] = [ c for v in contours[cont_val].values() for c in v ]
 
         return contours
 
@@ -73,7 +73,7 @@ class SPCSWOContours(object):
         that stretch from border to border will end up covering large sections of the country. That's okay; we'll take
         care of that later.
         """
-        polys = []
+        polys = {}
 
         start_idx = 0
         splits = []
@@ -109,17 +109,19 @@ class SPCSWOContours(object):
             #   that contains the line
             test_ln = cont.parallel_offset(0.05, 'right')
 
+            polys[cont] = []
+
             for poly in polygonize(self._conus.boundary.union(cont)):
                 if (poly.crosses(test_ln) or poly.contains(test_ln)) and self._conus.contains(poly.buffer(-0.01)):
-                    bdy = poly.boundary.difference(self._conus.boundary)
-                    polys.append((bdy, poly))
+                    polys[cont].append(poly)
         return polys
 
-    def _check_intersections(self, poly_bdy_list):
+    def _check_intersections(self, poly_bdy_list, cont_val):
         """
         Check for any intersections between polygons. This happens when contours stretch from one border to another, say
         a large general TSTM area stretching from the Mexican to Canadian border.
         """
+
         def line_distance(l1, l2):
             if hasattr(l1, 'geoms'):
                 pts1 = [ Point(c) for ls in l1.geoms for c in ls.coords ]
@@ -145,27 +147,62 @@ class SPCSWOContours(object):
                         return True
             return False
 
+        def build_bdy_lookup(poly_dict):
+            bdy_lookup = {}
+            for con, polys in poly_dict.iteritems():
+                for poly in polys:
+                    bdy_lookup[poly] = con
+            return bdy_lookup
+
+        # Build a dictionary to look up which poly goes with which contour.
+        bdy_lookup = build_bdy_lookup(poly_bdy_list)
+        poly_list = bdy_lookup.keys()
+
         # If any polygons intersect, replace them with their intersection.
-        while any_intersections(zip(*poly_bdy_list)[1]):
+        while any_intersections(poly_list):
             # Sort the polygons by area so we intersect the big ones with the big ones first.
-            poly_bdy_list.sort(key=lambda p: p[1].area, reverse=True)
+            poly_list.sort(key=lambda p: p.area, reverse=True)
 
             # Our target is the largest polygon
-            target_bdy, target_poly = poly_bdy_list.pop(0)
+            target_poly = poly_list.pop(0)
+            target_bdy = bdy_lookup[target_poly]
 
-            # Find all the areas that intersect with our target and sort them by the minimum distance of its boundary 
-            #   from the target's boundary.
-            intersects = [ p for p in poly_bdy_list if target_poly.intersects(p[1]) ]
-            intersects.sort(key=lambda p: line_distance(target_bdy, p[0]))
+            # Now use the contour that goes with the target polygon and find the closest contour
+            bdy_list = poly_bdy_list.keys()
+            bdy_list.sort(key=lambda b: line_distance(target_bdy, b))
+            bdy_list.pop(0)
+            while not any( target_poly.intersects(p) for p in poly_bdy_list[bdy_list[0]] ):
+                bdy_list.pop(0)
 
-            # The first one is the one we want.
-            intsct_bdy, intsct_poly = intersects.pop(0)
+            # Take all polygons created by these contours and intersect as many as we can with
+            #   each other, starting with the biggest ones.
+            intsct_bdy = bdy_list[0]
+            intsct_polys = poly_bdy_list[target_bdy] + poly_bdy_list[intsct_bdy]
+            after_polys = []
+            while any_intersections(intsct_polys):
+                intsct_polys.sort(key=lambda p: p.area, reverse=True)
+                tgt_poly = intsct_polys.pop(0)
+                pop_idxs = []
+                for idx, intsct in enumerate(intsct_polys):
+                    if tgt_poly.intersects(intsct):
+                        tgt_poly = tgt_poly.intersection(intsct)
+                        pop_idxs.append(idx)
 
-            target_poly = target_poly.intersection(intsct_poly)
-            target_bdy = target_bdy.union(intsct_bdy)
+                for idx in sorted(pop_idxs, reverse=True):
+                    intsct_polys.pop(idx)
 
-            poly_bdy_list.remove((intsct_bdy, intsct_poly))
-            poly_bdy_list.append((target_bdy, target_poly))
+                after_polys.append(tgt_poly)
+            after_polys.extend(intsct_polys)
+
+            # Remove the old polygons and form the new boundary
+            poly_bdy_list.pop(target_bdy)
+            poly_bdy_list.pop(intsct_bdy)
+            new_bdy = target_bdy.union(intsct_bdy)
+            poly_bdy_list[new_bdy] = after_polys
+
+            # Rebuild the lookup dictionary and arrays
+            bdy_lookup = build_bdy_lookup(poly_bdy_list)
+            poly_list = bdy_lookup.keys()
 
         return poly_bdy_list
 
@@ -254,7 +291,7 @@ if __name__ == "__main__":
     wind_colors = {0.05:'#8b4726', 0.15:'#ffc800', 0.3:'#ff0000', 0.45:'#ff00ff', 0.6:'#912cee'}
     hail_colors = {0.05:'#8b4726', 0.15:'#ffc800', 0.3:'#ff0000', 0.45:'#ff00ff', 0.6:'#912cee'}
 
-    date = datetime(2013, 5, 31, 6, 0, 0)
+    date = datetime(2016, 6, 26, 12, 0, 0)
     lead_time = 1
 
     pylab.figure(dpi=200)
