@@ -3,7 +3,6 @@ import numpy as np
 
 from shapely.geometry import MultiLineString, LineString, Point
 from shapely.ops import polygonize, transform
-import random
 
 import re
 import os
@@ -25,8 +24,13 @@ class SPCSWOContours(object):
     def __contains__(self, val):
         return val in self._contours
 
-    def get_contour_vals(self):
-        if self._product.lower() == "categorical":
+    @property
+    def name(self):
+        return self._product.lower()
+
+    @property
+    def contours(self):
+        if self.name == "categorical":
             categories = ['TSTM', 'MRGL', 'SLGT', 'ENH', 'MDT', 'HIGH']
             contours = [ c for c in categories if c in self._contours.keys() ]
         else:
@@ -36,7 +40,10 @@ class SPCSWOContours(object):
     def _parse(self, text):
         contours = {}
 
-        if self._product.lower() == 'categorical':
+        if text == "":
+            return contours
+
+        if self.name == 'categorical':
             conts = re.split("[\s](?=[A-Z]{3})", text, re.S)
         else:
             conts = re.split("[\s](?=0\.|SI|TS)", text, re.S)
@@ -49,7 +56,7 @@ class SPCSWOContours(object):
 
             # Dirty hack for the 7 April 2006 20Z tornado outlook, which encodes the 45% contour as a TSTM contour for 
             #   some reason. Hopefully, I don't have to do too many of these.
-            if self._product.lower() == 'tornado' and cont_val == 'TSTM':
+            if self.name == 'tornado' and cont_val == 'TSTM':
                 cont_val = 0.45 
 
             coords = re.findall("[\d]{8}", cont)
@@ -277,8 +284,8 @@ class SPCSWO(object):
         for prod in products:
             match = re.search("\.\.\. %s \.\.\.([\w\d\s\.]+)\&\&" % prod, text, re.S)
             cont_str = match.groups()[0].strip()
-            if cont_str == "":
-                continue
+#           if cont_str == "":
+#               continue
 
             prods[prod] = SPCSWOContours(prod, cont_str, self._conus) 
         return prods
