@@ -106,8 +106,8 @@ class SPCSWOContours(object):
                 dln = np.diff(plon)
                 dlt = np.diff(plat)
 
-                pre = [ (plon[0] - 0.01 * dln[0], plat[0] - 0.01 * dlt[0]) ]
-                post = [ (plon[-1] + 0.01 * dln[-1], plat[-1] + 0.01 * dlt[-1]) ]
+                pre = [ (plon[0] - 0.03 * dln[0], plat[0] - 0.03 * dlt[0]) ]
+                post = [ (plon[-1] + 0.03 * dln[-1], plat[-1] + 0.03 * dlt[-1]) ]
 
                 cont.coords = pre + list(cont.coords) + post 
 
@@ -121,6 +121,7 @@ class SPCSWOContours(object):
             for poly in polygonize(self._conus.boundary.union(cont)):
                 if (poly.crosses(test_ln) or poly.contains(test_ln)) and self._conus.contains(poly.buffer(-0.01)):
                     polys[cont].append(poly)
+
         return polys
 
     def _check_intersections(self, poly_bdy_list, cont_val):
@@ -283,8 +284,6 @@ class SPCSWO(object):
         for prod in products:
             match = re.search("\.\.\. %s \.\.\.([\w\d\s\.]+)\&\&" % prod, text, re.S)
             cont_str = match.groups()[0].strip()
-#           if cont_str == "":
-#               continue
 
             prods[prod] = SPCSWOContours(prod, cont_str, self._conus) 
         return prods
@@ -307,7 +306,7 @@ if __name__ == "__main__":
     wind_colors = {0.05:'#8b4726', 0.15:'#ffc800', 0.3:'#ff0000', 0.45:'#ff00ff', 0.6:'#912cee'}
     hail_colors = {0.05:'#8b4726', 0.15:'#ffc800', 0.3:'#ff0000', 0.45:'#ff00ff', 0.6:'#912cee'}
 
-    date = datetime(2016, 6, 22, 13, 0, 0)
+    date = datetime(2006, 4, 7, 20, 0, 0)
     lead_time = 1
 
     pylab.figure(dpi=200)
@@ -316,9 +315,9 @@ if __name__ == "__main__":
 
     pylab.subplots_adjust(left=0.05, right=0.95, bottom=0.05, top=0.9)
 
-    prod = swo['categorical']
-    for name in prod.get_contour_vals():
-        colors = cat_colors
+    prod = swo['wind']
+    for name in prod.contour_vals:
+        colors = wind_colors
 
         conts = prod[name]
         for cont in conts:

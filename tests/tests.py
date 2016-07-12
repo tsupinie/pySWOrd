@@ -36,7 +36,7 @@ def create_image(date, bmap, lead_time=1):
             sig = product['SIGN']
             proj_cont = transform(lambda lon, lat: bmap(lon, lat), cont)
             pylab.gca().add_patch(PolygonPatch(proj_cont, fc='none', ec='k', hatch='xx'))
-        pylab.title(prod_name.title())
+        pylab.title(prod_name.title(), size='small')
 
         bmap.drawcoastlines()
         bmap.drawcountries()
@@ -62,6 +62,7 @@ def main():
         lat_1=33, lat_2=45, lon_0=-98, area_thresh=(1.5 * 36 * 36))
 
     dates = [
+        datetime(2006, 4, 7, 20, 0),
         datetime(2015, 4, 19, 1, 0),
         datetime(2016, 5, 21, 16, 30),
         datetime(2016, 6, 9, 1, 0),
