@@ -59,7 +59,7 @@ class SPCSWOContours(object):
             if cont_val not in contours:
                 contours[cont_val] = {}
 
-            contours[cont_val].update(self._cont_to_polys(lats, lons))
+            contours[cont_val].update(self._cont_to_polys(lats, lons, cont_val))
 
         for cont_val in contours.keys():
             contours[cont_val] = self._check_intersections(contours[cont_val], cont_val)
@@ -67,7 +67,7 @@ class SPCSWOContours(object):
 
         return contours
 
-    def _cont_to_polys(self, cont_lats, cont_lons):
+    def _cont_to_polys(self, cont_lats, cont_lons, cont_val):
         """
         Take the lat/lon contours, split them into their different segments, and create polygons out of them. Contours
         that stretch from border to border will end up covering large sections of the country. That's okay; we'll take
@@ -99,8 +99,8 @@ class SPCSWOContours(object):
                 dln = np.diff(plon)
                 dlt = np.diff(plat)
 
-                pre = [ (plon[0] - 0.5 * dln[0], plat[0] - 0.5 * dlt[0]) ]
-                post = [ (plon[-1] + 0.5 * dln[-1], plat[-1] + 0.5 * dlt[-1]) ]
+                pre = [ (plon[0] - 0.01 * dln[0], plat[0] - 0.01 * dlt[0]) ]
+                post = [ (plon[-1] + 0.01 * dln[-1], plat[-1] + 0.01 * dlt[-1]) ]
 
                 cont.coords = pre + list(cont.coords) + post 
 
@@ -154,6 +154,24 @@ class SPCSWOContours(object):
                     bdy_lookup[poly] = con
             return bdy_lookup
 
+        def intersect_poly_list(poly_list):
+            after_polys = []
+            while any_intersections(poly_list):
+                poly_list.sort(key=lambda p: p.area, reverse=True)
+                tgt_poly = poly_list.pop(0)
+                pop_idxs = []
+                for idx, intsct in enumerate(poly_list):
+                    if tgt_poly.intersects(intsct):
+                        tgt_poly = tgt_poly.intersection(intsct)
+                        pop_idxs.append(idx)
+
+                for idx in sorted(pop_idxs, reverse=True):
+                    poly_list.pop(idx)
+
+                after_polys.append(tgt_poly)
+            after_polys.extend(poly_list)
+            return after_polys
+
         # Build a dictionary to look up which poly goes with which contour.
         bdy_lookup = build_bdy_lookup(poly_bdy_list)
         poly_list = bdy_lookup.keys()
@@ -170,36 +188,28 @@ class SPCSWOContours(object):
             # Now use the contour that goes with the target polygon and find the closest contour
             bdy_list = poly_bdy_list.keys()
             bdy_list.sort(key=lambda b: line_distance(target_bdy, b))
-            bdy_list.pop(0)
-            while not any( target_poly.intersects(p) for p in poly_bdy_list[bdy_list[0]] ):
+            if len(bdy_list) > 1:
                 bdy_list.pop(0)
+                while not any( target_poly.intersects(p) for p in poly_bdy_list[bdy_list[0]] ):
+                    bdy_list.pop(0)
 
-            # Take all polygons created by these contours and intersect as many as we can with
-            #   each other, starting with the biggest ones.
-            intsct_bdy = bdy_list[0]
-            intsct_polys = poly_bdy_list[target_bdy] + poly_bdy_list[intsct_bdy]
-            after_polys = []
-            while any_intersections(intsct_polys):
-                intsct_polys.sort(key=lambda p: p.area, reverse=True)
-                tgt_poly = intsct_polys.pop(0)
-                pop_idxs = []
-                for idx, intsct in enumerate(intsct_polys):
-                    if tgt_poly.intersects(intsct):
-                        tgt_poly = tgt_poly.intersection(intsct)
-                        pop_idxs.append(idx)
+                # Take all polygons created by these contours and intersect as many as we can with
+                #   each other, starting with the biggest ones.
+                intsct_bdy = bdy_list[0]
+                intsct_polys = poly_bdy_list[target_bdy] + poly_bdy_list[intsct_bdy]
+                after_polys = intersect_poly_list(intsct_polys)
 
-                for idx in sorted(pop_idxs, reverse=True):
-                    intsct_polys.pop(idx)
+                # Remove the old polygons and form the new boundary
+                poly_bdy_list.pop(target_bdy)
+                poly_bdy_list.pop(intsct_bdy)
+                new_bdy = target_bdy.union(intsct_bdy)
+                poly_bdy_list[new_bdy] = after_polys
+            else:
+                bdy = bdy_list[0]
 
-                after_polys.append(tgt_poly)
-            after_polys.extend(intsct_polys)
+                intsct_polys = intersect_poly_list(poly_bdy_list[bdy])
 
-            # Remove the old polygons and form the new boundary
-            poly_bdy_list.pop(target_bdy)
-            poly_bdy_list.pop(intsct_bdy)
-            new_bdy = target_bdy.union(intsct_bdy)
-            poly_bdy_list[new_bdy] = after_polys
-
+                poly_bdy_list[bdy] = intsct_polys
             # Rebuild the lookup dictionary and arrays
             bdy_lookup = build_bdy_lookup(poly_bdy_list)
             poly_list = bdy_lookup.keys()
@@ -291,7 +301,7 @@ if __name__ == "__main__":
     wind_colors = {0.05:'#8b4726', 0.15:'#ffc800', 0.3:'#ff0000', 0.45:'#ff00ff', 0.6:'#912cee'}
     hail_colors = {0.05:'#8b4726', 0.15:'#ffc800', 0.3:'#ff0000', 0.45:'#ff00ff', 0.6:'#912cee'}
 
-    date = datetime(2016, 6, 26, 12, 0, 0)
+    date = datetime(2016, 6, 22, 13, 0, 0)
     lead_time = 1
 
     pylab.figure(dpi=200)

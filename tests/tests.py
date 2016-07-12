@@ -50,6 +50,7 @@ def main():
         datetime(2015, 4, 19, 1, 0),
         datetime(2016, 5, 21, 16, 30),
         datetime(2016, 6, 9, 1, 0),
+        datetime(2016, 6, 22, 13, 0),
         datetime(2016, 6, 26, 12, 0),
     ]
     for date in dates:
