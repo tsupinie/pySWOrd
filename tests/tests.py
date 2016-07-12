@@ -34,8 +34,9 @@ def create_image(date, bmap, lead_time=1):
 
         if 'SIGN' in product:
             sig = product['SIGN']
-            proj_cont = transform(lambda lon, lat: bmap(lon, lat), cont)
-            pylab.gca().add_patch(PolygonPatch(proj_cont, fc='none', ec='k', hatch='xx'))
+            for cont in sig:
+                proj_cont = transform(lambda lon, lat: bmap(lon, lat), cont)
+                pylab.gca().add_patch(PolygonPatch(proj_cont, fc='none', ec='k', hatch='xx'))
         pylab.title(prod_name.title(), size='small')
 
         bmap.drawcoastlines()
