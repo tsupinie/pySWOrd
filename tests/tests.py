@@ -24,7 +24,7 @@ def create_image(date, bmap, lead_time=1):
 
     def do_subplot(product):
         prod_name = product.name
-        for con_val in product.contours:
+        for con_val in product.contour_vals:
             clr = colors[prod_name][con_val]
 
             conts = product[con_val]

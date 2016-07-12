@@ -30,12 +30,12 @@ lead_time = 2                                              # Lead time in the ou
 swo = SPCSWO.download(outlook_issue, lead_time=lead_time)  # lead_time defaults to 1 day if not specified.
 
 # Do stuff with the outlook
-product = swo['categorical']      # Pull out the categorical outlook (specify 'tornado' for the 
-                                  #    tornado outlook, 'hail' for the hail outlook, 'wind' for
-                                  #    the wind outlook, or 'any severe' for probability of any
-                                  #    severe on days 2 and 3.).
-contour_vals = product.contours   # Get the contour values for this outlook
-prod_name = product.name          # Get the product name ('categorical', 'tornado', etc.)
+product = swo['categorical']          # Pull out the categorical outlook (specify 'tornado' for the 
+                                      #    tornado outlook, 'hail' for the hail outlook, 'wind' for
+                                      #    the wind outlook, or 'any severe' for probability of any
+                                      #    severe on days 2 and 3.).
+contour_vals = product.contour_vals   # Get the contour values for this outlook
+prod_name = product.name              # Get the product name ('categorical', 'tornado', etc.)
 for con_val in contour_vals:
     for polygon in product[con_val]:       # Loop over all contours (e.g. all SLGT risk areas)
         # polygon is a shapely polygon representing a contour in the outlook. The vertices are lon, lat

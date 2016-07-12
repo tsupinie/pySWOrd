@@ -29,7 +29,7 @@ class SPCSWOContours(object):
         return self._product.lower()
 
     @property
-    def contours(self):
+    def contour_vals(self):
         if self.name == "categorical":
             categories = ['TSTM', 'MRGL', 'SLGT', 'ENH', 'MDT', 'HIGH']
             contours = [ c for c in categories if c in self._contours.keys() ]
