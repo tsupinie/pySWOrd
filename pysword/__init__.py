@@ -1,5 +1,5 @@
 
-import version
+import _pysword_version as version
 import pysword
 
 SPCSWO = pysword.SPCSWO

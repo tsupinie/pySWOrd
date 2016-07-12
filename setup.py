@@ -6,7 +6,7 @@ pkgname = "pySWOrd"
 ### GET VERSION INFORMATION ###
 setup_path = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.join(setup_path, pkgname.lower()))
-import version
+import _pysword_version as version
 ver = version.get_version()
 sys.path.pop()
 
