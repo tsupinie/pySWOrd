@@ -213,10 +213,9 @@ class SPCSWOContours(object):
                 poly_bdy_list[new_bdy] = after_polys
             else:
                 bdy = bdy_list[0]
-
                 intsct_polys = intersect_poly_list(poly_bdy_list[bdy])
-
                 poly_bdy_list[bdy] = intsct_polys
+
             # Rebuild the lookup dictionary and arrays
             bdy_lookup = build_bdy_lookup(poly_bdy_list)
             poly_list = bdy_lookup.keys()
